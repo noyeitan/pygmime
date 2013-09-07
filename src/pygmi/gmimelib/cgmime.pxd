@@ -67,6 +67,9 @@ cdef extern from "gmime/gmime.h":
     ctypedef struct GMimeMultipartEncrypted:
         pass
 
+    ctypedef struct GMimeDecryptResult:
+        pass
+
     ctypedef struct GMimeMultipartSigned:
         pass
 
@@ -108,25 +111,25 @@ cdef extern from "gmime/gmime.h":
     ctypedef struct CInternetAddressList "InternetAddressList":
         pass
 
-    ctypedef struct GMimeCipherContext:
+    ctypedef struct GMimeCryptoContext:
         pass
 
     ctypedef struct GMimeGpgContext:
         pass
 
 
-    ctypedef enum GMimeCipherHash:
-        GMIME_CIPHER_HASH_DEFAULT
-        GMIME_CIPHER_HASH_MD2
-        GMIME_CIPHER_HASH_MD5
-        GMIME_CIPHER_HASH_SHA1
-        GMIME_CIPHER_HASH_SHA224
-        GMIME_CIPHER_HASH_SHA256
-        GMIME_CIPHER_HASH_SHA384
-        GMIME_CIPHER_HASH_SHA512
-        GMIME_CIPHER_HASH_RIPEMD160
-        GMIME_CIPHER_HASH_TIGER192
-        GMIME_CIPHER_HASH_HAVAL5160
+    ctypedef enum GMimeDigestAlgo:
+        GMIME_DIGEST_ALGO_DEFAULT
+        GMIME_DIGEST_ALGO_MD2
+        GMIME_DIGEST_ALGO_MD5
+        GMIME_DIGEST_ALGO_SHA1
+        GMIME_DIGEST_ALGO_SHA224
+        GMIME_DIGEST_ALGO_SHA256
+        GMIME_DIGEST_ALGO_SHA384
+        GMIME_DIGEST_ALGO_SHA512
+        GMIME_DIGEST_ALGO_RIPEMD160
+        GMIME_DIGEST_ALGO_TIGER192
+        GMIME_DIGEST_ALGO_HAVAL5160
 
     ctypedef enum GMimeSignatureStatus:
         GMIME_SIGNATURE_STATUS_NONE
@@ -155,22 +158,6 @@ cdef extern from "gmime/gmime.h":
         GMimeSignatureStatus status
         GMimeSigner *signers
         char *details
-
-    ctypedef struct GMimeSession:
-        pass
-
-    ctypedef struct GMimeSessionSimple:
-        pass
-
-    ctypedef void (*GMimeSimpleRequestPasswdFunc)(GMimeSession *session,
-                                                  char *prompt,\
-                                                  bint secret,\
-                                                  char *item,\
-                                                  GError **err)
-
-    ctypedef void (*GMimeSimpleForgetPasswdFunc)(GMimeSession *session,
-                                                 char *item,\
-                                                 GError **err)
 
     ctypedef void (*GMimeSimpleIsOnlineFunc) ()
 
@@ -210,25 +197,6 @@ cdef extern from "gmime/gmime.h":
     GByteArray  *g_byte_array_new     ()
     GByteArray  *g_byte_array_append     (GByteArray *array, unsigned char *data, int len)
 
-    char *g_mime_session_request_passwd  (GMimeSession *session,\
-                                          char *prompt,\
-                                          bint secret,\
-                                          char *item,\
-                                          GError **err)
-    void g_mime_session_forget_passwd   (GMimeSession *session,\
-                                         char *item,\
-                                         GError **err)
-    bint g_mime_session_is_online (GMimeSession *session)
-
-    void g_mime_session_simple_set_request_passwd (GMimeSessionSimple *session, \
-                                                   void *request_passwd_func)
-    void g_mime_session_simple_set_forget_passwd (GMimeSessionSimple *session, \
-                                                  void *forget_passwd_func)
-    void g_mime_session_simple_set_is_online (GMimeSessionSimple *session, \
-                                              void *is_online_func)
-
-    GMimeCipherContext * g_mime_gpg_context_new (GMimeSession *session,\
-                                                 char *path)
     bint g_mime_gpg_context_get_always_trust (GMimeGpgContext *ctx)
     void g_mime_gpg_context_set_always_trust (GMimeGpgContext *ctx,\
                                               bint always_trust)
@@ -352,14 +320,15 @@ cdef extern from "gmime/gmime.h":
     GMimeMultipartEncrypted * g_mime_multipart_encrypted_new ()
     int g_mime_multipart_encrypted_encrypt  (GMimeMultipartEncrypted *mpe, \
                                              GMimeObject *content, \
-                                             GMimeCipherContext *ctx, \
+                                             GMimeCryptoContext *ctx, \
                                              bint sign, \
                                              char *userid, \
                                              GPtrArray *recipients, \
                                              GError **err)
     GMimeObject * g_mime_multipart_encrypted_decrypt \
                 (GMimeMultipartEncrypted *mpe, \
-                 GMimeCipherContext *ctx, \
+                 GMimeCryptoContext *ctx, \
+                 GMimeDecryptResult **result, \
                  GError **err)
     GMimeSignatureValidity * g_mime_multipart_encrypted_get_signature_validity \
         (GMimeMultipartEncrypted *mpe)
@@ -367,12 +336,12 @@ cdef extern from "gmime/gmime.h":
     GMimeMultipartSigned * g_mime_multipart_signed_new      ()
     int                 g_mime_multipart_signed_sign        (GMimeMultipartSigned *mps, \
                                                              GMimeObject *content, \
-                                                             GMimeCipherContext *ctx, \
+                                                             GMimeCryptoContext *ctx, \
                                                              char *userid, \
-                                                             GMimeCipherHash hash, \
+                                                             GMimeDigestAlgo hash, \
                                                              GError **err)
     GMimeSignatureValidity * g_mime_multipart_signed_verify (GMimeMultipartSigned *mps, \
-                                                             GMimeCipherContext *ctx, \
+                                                             GMimeCryptoContext *ctx, \
                                                              GError **err)
 
 
@@ -397,7 +366,6 @@ cdef extern from "gmime/gmime.h":
 
     GMimeStreamFilter *GMIME_STREAM_FILTER (GMimeStream*)
 
-    GMimeSession *GMIME_SESSION (GObject*)
     bint GMIME_IS_SESSION (GObject*) 
     GMimePart      *GMIME_PART        (GMimeObject*)
     bint           GMIME_IS_PART        (GMimeObject*)
@@ -412,13 +380,10 @@ cdef extern from "gmime/gmime.h":
     GMimeMessage   *GMIME_MESSAGE   (GMimeObject*)
     bint           GMIME_IS_MESSAGE_PART (GMimeObject*)
     GMimeMessagePart   *GMIME_MESSAGE_PART   (GMimeObject*)
-    bint    GMIME_IS_CIPHER_CONTEXT (void*)
-    GMimeCipherContext *GMIME_CIPHER_CONTEXT (void*)
-    bint    GMIME_IS_GPG_CONTEXT (GMimeCipherContext*)
-    GMimeGpgContext *GMIME_GPG_CONTEXT (GMimeCipherContext*)
-    GMimeSession *GMIME_SESSION (GObject*)
-    bint GMIME_IS_SESSION_SIMPLE (GMimeSession*)
-    GMimeSessionSimple *GMIME_SESSION_SIMPLE (GMimeSession*)
+    bint    GMIME_IS_CRYPTO_CONTEXT (void*)
+    GMimeCryptoContext *GMIME_CRYPTO_CONTEXT (void*)
+    bint    GMIME_IS_GPG_CONTEXT (GMimeCryptoContext*)
+    GMimeGpgContext *GMIME_GPG_CONTEXT (GMimeCryptoContext*)
     CInternetAddress *INTERNET_ADDRESS (void*)
     bint INTERNET_ADDRESS_IS_MAILBOX (CInternetAddress*)
     CInternetAddressMailbox *INTERNET_ADDRESS_MAILBOX (CInternetAddress*)

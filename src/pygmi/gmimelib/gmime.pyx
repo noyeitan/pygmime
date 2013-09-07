@@ -158,30 +158,30 @@ cdef DataWrapper mk_data_wrapper (GMimeDataWrapper *gmdw):
     return dw
 
 ##############################################################################
-## CIPHER CONTEXT
+## CRYPTO CONTEXT
 ##############################################################################
 
-cdef class CipherContext(object):
+cdef class CryptoContext(object):
 
-    cdef GMimeCipherContext *_c_gmciphercontext
+    cdef GMimeCryptoContext *_c_gmcryptocontext
 
     def is_gpg_context(self):
-        return GMIME_IS_GPG_CONTEXT(self._c_gmciphercontext)
+        return GMIME_IS_GPG_CONTEXT(self._c_gmcryptocontext)
 
     def to_gpg_context(self):
-        return mk_gpg_context (GMIME_GPG_CONTEXT(self._c_gmciphercontext))
+        return mk_gpg_context (GMIME_GPG_CONTEXT(self._c_gmcryptocontext))
 
-# Initializer from a GMimeCipherContext
-cdef CipherContext mk_cipher_context (GMimeCipherContext *gmctx):
-    ctx = CipherContext()
-    ctx._c_gmciphercontext = gmctx
+# Initializer from a GMimeCryptoContext
+cdef CryptoContext mk_crypto_context (GMimeCryptoContext *gmctx):
+    ctx = CryptoContext()
+    ctx._c_gmcryptocontext = gmctx
     return ctx
 
 ##############################################################################
-## GPG CIPHER CONTEXT
+## GPG CRYPTO CONTEXT
 ##############################################################################
 
-cdef class GPGContext(CipherContext):
+cdef class GPGContext(CryptoContext):
 
     cdef GMimeGpgContext *_c_gmgpgcontext
 
@@ -193,61 +193,8 @@ cdef class GPGContext(CipherContext):
 cdef GPGContext mk_gpg_context (GMimeGpgContext *gmgpg):
     ctx = GPGContext()
     ctx._c_gmgpgcontext = gmgpg
-    ctx._c_gmciphercontext = GMIME_CIPHER_CONTEXT(gmgpg)
+    ctx._c_gmcryptocontext = GMIME_CRYPTO_CONTEXT(gmgpg)
     return ctx
-
-##############################################################################
-## GMIME SESSION
-##############################################################################
-
-cdef class Session(object):
-
-    cdef GMimeSession *_c_gmsession
-
-    def __cinit__(self):
-        self._c_gmsession = GMIME_SESSION (
-            g_object_new( g_mime_session_get_type(), NULL)
-            )
-
-    def request_password(self, char* prompt, bint secret, char *item):
-        cdef GError *err = NULL
-        cdef char *passwd = \
-             g_mime_session_request_passwd(self._c_gmsession,
-                                           prompt,
-                                           secret,
-                                           item,
-                                           &err)
-        if err != NULL:
-            raise Exception, "Error requesting password: " + err.message
-        else:
-            return passwd
-
-    def forget_password(self, char *item):
-        cdef GError *err = NULL
-        g_mime_session_forget_passwd(self._c_gmsession,
-                                     item,
-                                     &err)
-        if err != NULL:
-            raise Exception, "Error forgetting password: " + err.message
-
-    def is_online(self):
-        return g_mime_session_is_online (self._c_gmsession)
-
-    def new_gpg_context(self, char *path):
-        cdef GMimeCipherContext *ctx = \
-             g_mime_gpg_context_new(self._c_gmsession, path)
-        return mk_cipher_context(ctx)
-
-##############################################################################
-## GMIME SESSION SIMPLE (SESSION)
-##############################################################################
-
-cdef class SessionSimple(Session):
-
-    cdef GMimeSessionSimple *_c_gmsessionsimple
-
-    def __cinit__(self):
-        super(SessionSimple, self).__init__()
 
 
 ##############################################################################
@@ -458,15 +405,17 @@ cdef Multipart mk_multipart(GMimeMultipart *gmmp):
 cdef class MultipartEncrypted(Multipart):
 
     cdef GMimeMultipartEncrypted *_c_gmmultipartencrypted
+    cdef GMimeDecryptResult *_c_gmdecryptresult
 
     def __cinit__(self):
         Multipart.__init__(self)
 
-    def decrypt(self, CipherContext ctx):
+    def decrypt(self, CryptoContext ctx):
         cdef GError *err = NULL
         cdef GMimeObject *obj = \
             g_mime_multipart_encrypted_decrypt(self._c_gmmultipartencrypted,
-                                               ctx._c_gmciphercontext,
+                                               ctx._c_gmcryptocontext,
+                                               &self._c_gmdecryptresult,   
                                                &err)
         if err != NULL:
             raise Exception, "decryption failed: " + err.message
@@ -492,11 +441,11 @@ cdef class MultipartSigned(Multipart):
     def __cinit__(self):
         Multipart.__init__(self)
 
-    # def verify(self, CipherContext ctx):
+    # def verify(self, CryptoContext ctx):
     #     cdef GError *err = NULL
     #     cdef GMimeSignatureValidity *sigval = \
     #         g_mime_multipart_signed_verify(self._c_gmmultipartsigned,
-    #                                        ctx._c_gmciphercontext,
+    #                                        ctx._c_gmcryptocontext,
     #                                        &err)
     #     if err != NULL:
     #         raise Exception, "Verification failed: " + err.message

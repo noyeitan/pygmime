@@ -22,9 +22,9 @@ ext_modules = [
     Extension(
         "pygmi.gmimelib.gmime", 
         ["src/pygmi/gmimelib/gmime.pyx"],
-        libraries = pkg_config('gmime-2.4')['libraries'],
-        include_dirs = pkg_config('gmime-2.4')['include_dirs'] + ['src/pygmi/gmimelib'],
-        library_dirs = pkg_config('gmime-2.4')['library_dirs']
+        libraries = pkg_config('gmime-2.6')['libraries'],
+        include_dirs = pkg_config('gmime-2.6')['include_dirs'] + ['src/pygmi/gmimelib'],
+        library_dirs = pkg_config('gmime-2.6')['library_dirs']
         )
     ]
 
